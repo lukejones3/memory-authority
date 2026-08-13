@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Memory Authority — Deterministic memory outside the model",
   description:
     "A model-independent encrypted memory authority that compiles provenance-bearing evidence before inference.",
-  icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+  icons: { icon: "/og.png", shortcut: "/og.png" },
   openGraph: {
     title: "Memory Authority",
     description: "Memory belongs outside the model.",
