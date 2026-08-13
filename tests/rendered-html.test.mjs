@@ -18,10 +18,9 @@ test("server-renders the complete Memory Authority demo", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
   assert.match(html, /Memory Authority/);
-  assert.match(html, /Memory belongs/);
-  assert.match(html, /outside/);
-  assert.match(html, /Watch memory become evidence/);
-  assert.match(html, /Not RAG with a memory label/);
+  assert.match(html, /Deterministic memory for AI agents/);
+  assert.match(html, /Inspect a compiled context packet/);
+  assert.match(html, /Memory decisions outside the model/);
   assert.match(html, /synthetic demo data only/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });

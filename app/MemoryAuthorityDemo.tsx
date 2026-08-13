@@ -42,38 +42,30 @@ export function MemoryAuthorityDemo() {
 
       <section className="hero shell" id="top">
         <div className="hero-copy">
-          <div className="eyebrow"><span className="live-dot" /> THE MODEL DOES NOT CHOOSE ITS MEMORIES</div>
-          <h1>Memory belongs<br /><em>outside</em> the model.</h1>
+          <div className="eyebrow">OPEN-SOURCE REFERENCE IMPLEMENTATION</div>
+          <h1>Deterministic memory for AI agents.</h1>
           <p className="hero-lede">
-            A deterministic, encrypted authority compiles provenance-bearing evidence before inference—then replays the exact same context into any model.
+            Memory Authority retrieves encrypted, provenance-bearing evidence before inference. The same request against the same state produces the same context packet for any model client.
           </p>
           <div className="hero-actions">
-            <a className="button primary" href="#explorer">Run the authority <span>↓</span></a>
-            <a className="button secondary" href="#architecture">See the system</a>
+            <a className="button primary" href="#explorer">Open interactive demo</a>
+            <a className="button secondary" href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">View source</a>
           </div>
         </div>
-        <div className="hero-machine" aria-label="Memory authority pipeline">
+        <div className="hero-machine" aria-label="Memory authority summary">
           <div className="machine-top">
-            <span>AUTHORITY / LIVE</span>
+            <span>HOW IT WORKS</span>
             <span className="mono muted">compiler v2.4.0</span>
           </div>
-          <div className="vault-orbit">
-            <div className="orbit orbit-one" />
-            <div className="orbit orbit-two" />
-            <div className="vault-core">
-              <span className="core-label">ENCRYPTED<br />EVIDENCE</span>
-              <strong>8</strong>
-              <small>candidates</small>
-            </div>
-            <span className="satellite sat-a">DECISION</span>
-            <span className="satellite sat-b">INCIDENT</span>
-            <span className="satellite sat-c">TEST</span>
-            <span className="satellite sat-d">CHANGE</span>
+          <div className="summary-list">
+            <div><span>1</span><p><b>Authorize</b><small>Verify client identity and scope before retrieval.</small></p></div>
+            <div><span>2</span><p><b>Compile</b><small>Rank primary evidence and traverse typed history.</small></p></div>
+            <div><span>3</span><p><b>Seal</b><small>Return a budgeted packet with a replayable fingerprint.</small></p></div>
           </div>
-          <div className="compile-strip">
-            <div><span>01</span><b>verify</b><small>client + scope</small></div>
-            <div><span>02</span><b>compile</b><small>rank + traverse</small></div>
-            <div><span>03</span><b>seal</b><small>packet fingerprint</small></div>
+          <div className="summary-result">
+            <span>OUTPUT</span>
+            <code>ctx_atlas_01J8Z6QK</code>
+            <b>supported</b>
           </div>
         </div>
       </section>
@@ -91,10 +83,10 @@ export function MemoryAuthorityDemo() {
       <section className="explorer shell" id="explorer">
         <div className="section-head">
           <div>
-            <span className="section-number">01 / LIVE SYSTEM</span>
-            <h2>Watch memory become evidence.</h2>
+            <span className="section-number">INTERACTIVE DEMO</span>
+            <h2>Inspect a compiled context packet.</h2>
           </div>
-          <p>Select a failure mode. The authority exposes what it considered, why it selected or rejected each record, and what the model actually received.</p>
+          <p>Choose a scenario to inspect selected evidence, rejected candidates, graph relationships, access controls, and model-independent replay.</p>
         </div>
 
         <div className="scenario-rail" role="tablist" aria-label="Demo scenarios">
@@ -224,7 +216,7 @@ export function MemoryAuthorityDemo() {
       <section className="architecture" id="architecture">
         <div className="shell">
           <div className="section-head light">
-            <div><span className="section-number">02 / ARCHITECTURE</span><h2>Not RAG with a memory label.</h2></div>
+            <div><span className="section-number">ARCHITECTURE</span><h2>Memory decisions outside the model.</h2></div>
             <p>The model is downstream of identity, scope, encryption, candidate formation, graph traversal, packing, support classification, and replay proof.</p>
           </div>
           <div className="architecture-flow">
@@ -243,8 +235,8 @@ export function MemoryAuthorityDemo() {
 
       <section className="install shell" id="install">
         <div className="install-copy">
-          <span className="section-number">03 / RUN IT</span>
-          <h2>Give an agent institutional memory without giving it authority over memory.</h2>
+          <span className="section-number">RUN LOCALLY</span>
+          <h2>Use the reference implementation.</h2>
           <p>The repository includes the deterministic compiler, AES-GCM ledger, HMAC semantic transform, PostgreSQL + pgvector schema, scoped client grants, MCP adapter, synthetic Atlas corpus, frozen evaluation suite, and threat model.</p>
           <a className="button primary dark-button" href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">Open the repository ↗</a>
         </div>
