@@ -1,256 +1,142 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { scenarios } from "./demo-data";
 
-type View = "packet" | "candidates" | "graph" | "replay";
+type View = "packet" | "scores" | "graph" | "replay";
+type DemoResult = {
+  query: string;
+  denied?: boolean;
+  answer: string;
+  replayVerified: boolean;
+  packet: {
+    packetId: string;
+    fingerprint: string;
+    compilerVersion: string;
+    clientId: string;
+    scope: string;
+    support: string;
+    budget: { limit: number; used: number };
+    candidates: number;
+    memories: Array<{
+      memoryId: string; title: string; type: string; text: string; source: string; eventTime: string; score: number;
+      selected: boolean; reasons: string[]; components: { lexical: number; graph: number; authority: number; recency: number; status: number };
+    }>;
+    trace: string[];
+  };
+  graph: { nodes: Array<{ id: string; label: string; type: string; selected: boolean; status: string }>; edges: Array<{ from: string; to: string; type: string }> };
+};
 
-function StatusPill({ status }: { status: string }) {
-  return <span className={`status status-${status}`}>{status}</span>;
+const DEFAULT_QUERY = "Why does the invoice ledger still need the idempotency guard?";
+
+function short(value: string, length = 16) {
+  return value.length > length ? `${value.slice(0, length)}…` : value;
 }
-
 export function MemoryAuthorityDemo() {
-  const [scenarioId, setScenarioId] = useState("decision");
+  const [query, setQuery] = useState(DEFAULT_QUERY);
+  const [scope, setScope] = useState("atlas/core");
   const [view, setView] = useState<View>("packet");
-  const [ran, setRan] = useState(1);
-  const scenario = useMemo(
-    () => scenarios.find(item => item.id === scenarioId) ?? scenarios[0],
-    [scenarioId]
-  );
-  const selected = scenario.candidates.filter(item => item.selected);
+  const [result, setResult] = useState<DemoResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [runNumber, setRunNumber] = useState(0);
 
-  const choose = (id: string) => {
-    setScenarioId(id);
-    setView("packet");
-    setRan(value => value + 1);
+  const run = async (nextQuery = query, nextScope = scope) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: nextQuery, scope: nextScope, budgetChars: 4_000 }) });
+      const data = await response.json() as DemoResult & { error?: string };
+      if (!response.ok) throw new Error(data.error ?? `Compiler failed (${response.status})`);
+      setResult(data);
+      setRunNumber(value => value + 1);
+      setView("packet");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Compiler failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <main>
-      <nav className="nav shell">
-        <a className="brand" href="#top" aria-label="Memory Authority home">
-          <span className="brand-mark"><i /><i /><i /></span>
-          <span>MEMORY AUTHORITY</span>
-        </a>
-        <div className="nav-links">
-          <a href="#explorer">Live explorer</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#install">Install</a>
-          <a className="repo-link" href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">GitHub ↗</a>
+  useEffect(() => {
+    const timer = window.setTimeout(() => void run(DEFAULT_QUERY, "atlas/core"), 0);
+    return () => window.clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const choose = (id: string) => {
+    const scenario = scenarios.find(item => item.id === id) ?? scenarios[0];
+    const nextScope = id === "denied" ? "nebula/private" : "atlas/core";
+    setQuery(scenario.query);
+    setScope(nextScope);
+    void run(scenario.query, nextScope);
+  };
+
+  const graph = useMemo(() => {
+    const nodes = result?.graph.nodes ?? [];
+    return nodes.map((node, index) => ({ ...node, x: 12 + ((index * 31) % 76), y: 20 + ((index * 47) % 62) }));
+  }, [result]);
+
+  return <main>
+    <nav className="nav shell">
+      <a className="brand" href="#top"><span className="brand-mark"><i /><i /><i /></span><span>MEMORY AUTHORITY</span></a>
+      <div className="nav-links"><a href="#explorer">Compiler</a><a href="#architecture">Architecture</a><a href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">Source ↗</a></div>
+    </nav>
+
+    <section className="hero shell" id="top">
+      <div className="hero-copy">
+        <div className="eyebrow">WORKING REFERENCE IMPLEMENTATION · SYNTHETIC DATA</div>
+        <h1>Memory decisions outside the model.</h1>
+        <p className="hero-lede">Encrypted evidence enters a deterministic compiler before inference. Identity, scope, provenance, supersession, graph traversal, support, and context budget are explicit—and replayable.</p>
+        <div className="hero-actions"><a className="button primary" href="#explorer">Run the compiler</a><a className="button secondary" href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">Inspect source</a></div>
+      </div>
+      <div className="hero-machine">
+        <div className="machine-top"><span>LIVE AUTHORITY</span><span className="mono">{result?.packet.compilerVersion ?? "starting"}</span></div>
+        <div className="summary-list">
+          <div><span>1</span><p><b>Authorize</b><small>Explicit client and scope before decryption.</small></p></div>
+          <div><span>2</span><p><b>Compile</b><small>Primary evidence, typed graph, validity, and budget.</small></p></div>
+          <div><span>3</span><p><b>Seal</b><small>Same state + request = same packet fingerprint.</small></p></div>
         </div>
-      </nav>
+        <div className="summary-result"><span>LAST RUN</span><code>{result ? short(result.packet.packetId, 23) : "waiting"}</code><b>{loading ? "compiling" : result?.packet.support ?? "ready"}</b></div>
+      </div>
+    </section>
 
-      <section className="hero shell" id="top">
-        <div className="hero-copy">
-          <div className="eyebrow">OPEN-SOURCE REFERENCE IMPLEMENTATION</div>
-          <h1>Deterministic memory for AI agents.</h1>
-          <p className="hero-lede">
-            Memory Authority retrieves encrypted, provenance-bearing evidence before inference. The same request against the same state produces the same context packet for any model client.
-          </p>
-          <div className="hero-actions">
-            <a className="button primary" href="#explorer">Open interactive demo</a>
-            <a className="button secondary" href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">View source</a>
-          </div>
-        </div>
-        <div className="hero-machine" aria-label="Memory authority summary">
-          <div className="machine-top">
-            <span>HOW IT WORKS</span>
-            <span className="mono muted">compiler v2.4.0</span>
-          </div>
-          <div className="summary-list">
-            <div><span>1</span><p><b>Authorize</b><small>Verify client identity and scope before retrieval.</small></p></div>
-            <div><span>2</span><p><b>Compile</b><small>Rank primary evidence and traverse typed history.</small></p></div>
-            <div><span>3</span><p><b>Seal</b><small>Return a budgeted packet with a replayable fingerprint.</small></p></div>
-          </div>
-          <div className="summary-result">
-            <span>OUTPUT</span>
-            <code>ctx_atlas_01J8Z6QK</code>
-            <b>supported</b>
-          </div>
-        </div>
-      </section>
+    <section className="proof-strip"><div className="shell proof-grid">
+      <div><strong>Encrypted</strong><span>AES-GCM evidence ledger</span></div><div><strong>Scoped</strong><span>deny before candidate formation</span></div><div><strong>Typed</strong><span>causal and supersession graph</span></div><div><strong>Empty</strong><span>when evidence is unsupported</span></div><div><strong>Replayable</strong><span>SHA-256 packet fingerprint</span></div>
+    </div></section>
 
-      <section className="proof-strip">
-        <div className="shell proof-grid">
-          <div><strong>100%</strong><span>exact target recall</span></div>
-          <div><strong>10/10</strong><span>broad retrieval suite</span></div>
-          <div><strong>0</strong><span>fabricated memories</span></div>
-          <div><strong>1.17M</strong><span>private events mirrored</span></div>
-          <div><strong>SHA-256</strong><span>replay fingerprint</span></div>
-        </div>
-      </section>
+    <section className="explorer shell" id="explorer">
+      <div className="section-head"><div><span className="section-number">LIVE COMPILER</span><h2>Ask the synthetic history anything.</h2></div><p>This form calls the real encrypted authority. The quick cases set inputs; they do not swap in prewritten output.</p></div>
+      <div className="scenario-rail">{scenarios.map((item, index) => <button key={item.id} onClick={() => choose(item.id)}><span>{String(index + 1).padStart(2, "0")}</span><b>{item.label}</b><small>{item.kicker}</small></button>)}</div>
 
-      <section className="explorer shell" id="explorer">
-        <div className="section-head">
-          <div>
-            <span className="section-number">INTERACTIVE DEMO</span>
-            <h2>Inspect a compiled context packet.</h2>
-          </div>
-          <p>Choose a scenario to inspect selected evidence, rejected candidates, graph relationships, access controls, and model-independent replay.</p>
-        </div>
+      <div className="live-workbench">
+        <aside className="live-input">
+          <div className="panel-label">REQUEST / CLIENT: ATLAS-DEMO</div>
+          <label><span>Question</span><textarea value={query} onChange={event => setQuery(event.target.value)} rows={7} maxLength={600} /></label>
+          <label><span>Requested scope</span><select value={scope} onChange={event => setScope(event.target.value)}><option value="atlas/core">atlas/core · granted</option><option value="nebula/private">nebula/private · denied</option></select></label>
+          <button className="compile-button" disabled={loading || !query.trim()} onClick={() => void run()}>{loading ? "Compiling evidence…" : "Compile context packet"}<span>→</span></button>
+          {error ? <p className="compile-error">{error}</p> : null}
+          <div className="trace-list"><div className="panel-label">DETERMINISTIC TRACE / RUN {String(runNumber).padStart(3, "0")}</div>{result?.packet.trace.map((line, index) => <div key={`${line}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><p>{line}</p><b>✓</b></div>)}</div>
+        </aside>
 
-        <div className="scenario-rail" role="tablist" aria-label="Demo scenarios">
-          {scenarios.map((item, index) => (
-            <button
-              key={item.id}
-              className={item.id === scenarioId ? "active" : ""}
-              onClick={() => choose(item.id)}
-              role="tab"
-              aria-selected={item.id === scenarioId}
-            >
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <b>{item.label}</b>
-              <small>{item.kicker}</small>
-            </button>
-          ))}
-        </div>
+        <section className="live-result">
+          <header className="result-topbar"><div><span>CONTEXT PACK</span><b>{result?.packet.packetId ?? "not compiled"}</b></div><span className={`status status-${result?.packet.support ?? "contextual"}`}>{loading ? "running" : result?.packet.support ?? "ready"}</span><div className="fingerprint"><span>FINGERPRINT</span><b>{result ? short(result.packet.fingerprint, 24) : "—"}</b></div></header>
+          <div className="view-tabs">{(["packet", "scores", "graph", "replay"] as View[]).map(item => <button key={item} className={view === item ? "active" : ""} onClick={() => setView(item)}>{item}</button>)}<span>{result ? `${result.packet.budget.used.toLocaleString()} / ${result.packet.budget.limit.toLocaleString()} chars` : "0 / 4,000 chars"}</span></div>
 
-        <div className="workbench">
-          <div className="query-column">
-            <div className="panel-label">INPUT / CLIENT: ATLAS-DEMO</div>
-            <div className="query-box">
-              <span className="prompt-symbol">›</span>
-              <p>{scenario.query}</p>
-              <button onClick={() => setRan(value => value + 1)} aria-label="Run current scenario">Run <span>⌘↵</span></button>
-            </div>
-            <div className="route-card">
-              <span>ROUTE</span>
-              <p>{scenario.route}</p>
-              <div className="route-line"><i /><i /><i className={scenario.support} /></div>
-            </div>
-            <div className="trace-list">
-              <div className="panel-label">DETERMINISTIC TRACE / RUN {String(ran).padStart(3, "0")}</div>
-              {scenario.trace.map((line, index) => (
-                <div key={line}><span>{String(index + 1).padStart(2, "0")}</span><p>{line}</p><b>✓</b></div>
-              ))}
-            </div>
-          </div>
+          {view === "packet" ? <div className="packet-view">
+            <div className="model-answer"><div className="answer-head"><span>COMPILED ANSWER PREVIEW</span><small>deterministic extract, no hidden LLM call</small></div><p>{result?.answer ?? "Compile a question to inspect the packet."}</p></div>
+            <div className="memory-stack">{result?.packet.memories.length ? result.packet.memories.map((memory, index) => <article key={memory.memoryId}><div className="memory-index">{String(index + 1).padStart(2, "0")}</div><div className="memory-body"><div className="memory-meta"><span className={`type type-${memory.type}`}>{memory.type}</span><time>{new Date(memory.eventTime).toLocaleDateString()}</time><b>{memory.score.toFixed(3)}</b></div><h3>{memory.title}</h3><p>{memory.text}</p><code>{memory.source}</code></div></article>) : <div className="empty-packet"><strong>{result?.denied ? "ACCESS DENIED" : "SEALED EMPTY PACKET"}</strong><p>No evidence crossed the authority boundary.</p></div>}</div>
+          </div> : null}
 
-          <div className="result-column">
-            <div className="result-topbar">
-              <div><span>CONTEXT PACK</span><b>{scenario.packetId}</b></div>
-              <StatusPill status={scenario.support} />
-              <div className="fingerprint"><span>FINGERPRINT</span><b>{scenario.fingerprint}</b></div>
-            </div>
-            <div className="view-tabs" role="tablist">
-              {(["packet", "candidates", "graph", "replay"] as View[]).map(item => (
-                <button key={item} className={view === item ? "active" : ""} onClick={() => setView(item)}>{item}</button>
-              ))}
-              <span>{scenario.budget}</span>
-            </div>
+          {view === "scores" ? <div className="score-view">{result?.packet.memories.length ? result.packet.memories.map(memory => <article key={memory.memoryId}><header><div><span>{memory.type}</span><h3>{memory.title}</h3></div><strong>{memory.score.toFixed(3)}</strong></header>{Object.entries(memory.components).map(([name, score]) => <div className="score-line" key={name}><span>{name}</span><i><b style={{ width: `${Math.max(0, Math.min(100, Number(score) * 100))}%` }} /></i><code>{Number(score).toFixed(3)}</code></div>)}<p>{memory.reasons.join(" · ")}</p></article>) : <div className="empty-packet"><strong>ZERO CANDIDATES PACKED</strong><p>Nothing was supplied downstream.</p></div>}</div> : null}
 
-            {view === "packet" && (
-              <div className="packet-view">
-                <div className="model-answer">
-                  <div className="answer-head"><span>MODEL RESPONSE</span><small>grounded only in the sealed packet</small></div>
-                  <p>{scenario.answer}</p>
-                </div>
-                <div className="memory-stack">
-                  {selected.length ? selected.map((memory, index) => (
-                    <article key={memory.id}>
-                      <div className="memory-index">{String(index + 1).padStart(2, "0")}</div>
-                      <div className="memory-body">
-                        <div className="memory-meta"><span className={`type type-${memory.type}`}>{memory.type}</span><time>{memory.date}</time><b>{memory.score.toFixed(3)}</b></div>
-                        <h3>{memory.title}</h3>
-                        <p>{memory.text}</p>
-                        <code>{memory.source}</code>
-                      </div>
-                    </article>
-                  )) : (
-                    <div className="empty-packet"><strong>{scenario.support === "denied" ? "ACCESS DENIED" : "EMPTY PACKET"}</strong><p>No evidence crossed the authority boundary.</p></div>
-                  )}
-                </div>
-              </div>
-            )}
+          {view === "graph" ? <div className="live-graph"><div className="graph-stage">{result?.graph.edges.map(edge => { const from = graph.find(node => node.id === edge.from); const to = graph.find(node => node.id === edge.to); if (!from || !to) return null; const dx = to.x - from.x, dy = to.y - from.y, width = Math.sqrt(dx * dx + dy * dy), angle = Math.atan2(dy, dx) * 180 / Math.PI; return <div className="edge" key={`${edge.from}-${edge.to}`} style={{ left: `${from.x}%`, top: `${from.y}%`, width: `${width}%`, transform: `rotate(${angle}deg)` }}><span>{edge.type}</span></div>; })}{graph.map(node => <div className={`graph-node node-${node.type} ${node.selected ? "selected" : ""}`} style={{ left: `${node.x}%`, top: `${node.y}%` }} key={node.id}><i />{node.label}</div>)}</div><p>{result?.graph.edges.length ?? 0} typed relationships survived scope and packet selection.</p></div> : null}
 
-            {view === "candidates" && (
-              <div className="candidate-view">
-                <div className="candidate-head"><span>RECORD</span><span>SCORE COMPOSITION</span><span>DECISION</span></div>
-                {scenario.candidates.length ? scenario.candidates.map(candidate => (
-                  <div className={`candidate-row ${candidate.selected ? "is-selected" : "is-rejected"}`} key={candidate.id}>
-                    <div><b>{candidate.title}</b><code>{candidate.id}</code></div>
-                    <div className="score-bars">
-                      <span style={{ "--score": candidate.lexical } as React.CSSProperties}><i />lex {candidate.lexical.toFixed(2)}</span>
-                      <span style={{ "--score": candidate.graph } as React.CSSProperties}><i />graph {candidate.graph.toFixed(2)}</span>
-                      <span style={{ "--score": candidate.authority } as React.CSSProperties}><i />source {candidate.authority.toFixed(2)}</span>
-                    </div>
-                    <div><strong>{candidate.score.toFixed(3)}</strong><small>{candidate.reason}</small></div>
-                  </div>
-                )) : <div className="empty-packet"><strong>ZERO CANDIDATES</strong><p>The request was stopped before retrieval.</p></div>}
-              </div>
-            )}
+          {view === "replay" ? <div className="replay-view"><div className="packet-seal"><span>PACKET FINGERPRINT</span><b>{result?.packet.fingerprint ?? "—"}</b><small>{result?.packet.packetId ?? "not compiled"}</small></div><div className="replay-arrow"><i /><span>SECOND COMPILATION</span><i /></div><div className="replay-verdict"><strong>{result?.replayVerified ? "IDENTICAL" : "MISMATCH"}</strong><p>Same encrypted state, client, scope, query, and budget returned {result?.replayVerified ? "the same bytes" : "different evidence"}.</p></div></div> : null}
+        </section>
+      </div>
+    </section>
 
-            {view === "graph" && (
-              <div className="graph-view">
-                <div className="graph-stage">
-                  {scenario.edges.map(edge => {
-                    const from = scenario.nodes.find(node => node.id === edge.from)!;
-                    const to = scenario.nodes.find(node => node.id === edge.to)!;
-                    const dx = to.x - from.x;
-                    const dy = to.y - from.y;
-                    const width = Math.sqrt(dx * dx + dy * dy);
-                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                    return <div className="edge" key={`${edge.from}-${edge.to}`} style={{ left: `${from.x + 5}%`, top: `${from.y + 5}%`, width: `${width}%`, transform: `rotate(${angle}deg)` }}><span>{edge.label}</span></div>;
-                  })}
-                  {scenario.nodes.map(node => <div className={`graph-node node-${node.kind}`} key={node.id} style={{ left: `${node.x}%`, top: `${node.y}%` }}><i />{node.label}</div>)}
-                </div>
-                <div className="graph-legend"><span><i className="decision" /> decision</span><span><i className="incident" /> incident</span><span><i className="test" /> executable proof</span><span><i className="denied" /> authority boundary</span></div>
-              </div>
-            )}
-
-            {view === "replay" && (
-              <div className="replay-view">
-                <div className="packet-seal"><span>SEALED ONCE</span><b>{scenario.fingerprint}</b><small>{scenario.packetId}</small></div>
-                <div className="replay-arrow"><i /><span>IDENTICAL BYTES</span><i /></div>
-                <div className="client-pair">
-                  <article><span className="client-icon codex-icon">C</span><div><small>CLIENT A</small><h3>Codex</h3><code>{scenario.fingerprint}</code></div><b>verified</b></article>
-                  <article><span className="client-icon claude-icon">A</span><div><small>CLIENT B</small><h3>Claude</h3><code>{scenario.fingerprint}</code></div><b>verified</b></article>
-                </div>
-                <p className="replay-note">The models may reason differently. They do not get to silently rewrite, omit, or invent the historical evidence supplied to them.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="architecture" id="architecture">
-        <div className="shell">
-          <div className="section-head light">
-            <div><span className="section-number">ARCHITECTURE</span><h2>Memory decisions outside the model.</h2></div>
-            <p>The model is downstream of identity, scope, encryption, candidate formation, graph traversal, packing, support classification, and replay proof.</p>
-          </div>
-          <div className="architecture-flow">
-            {["Events + artifacts", "Encrypted ledger", "Typed causal graph", "Deterministic compiler", "Sealed context pack", "Any model client"].map((label, index) => (
-              <div key={label}><span>{String(index + 1).padStart(2, "0")}</span><b>{label}</b>{index < 5 && <i>→</i>}</div>
-            ))}
-          </div>
-          <div className="principle-grid">
-            <article><span>01</span><h3>Memory decisions leave the model</h3><p>Storage, validity, supersession, ranking, scope, and packing are explicit system behavior—not latent model preference.</p></article>
-            <article><span>02</span><h3>Primary evidence outranks polish</h3><p>Original decisions, incidents, commits, tests, and messages beat later summaries that merely sound authoritative.</p></article>
-            <article><span>03</span><h3>History remains typed</h3><p>FAILED_BECAUSE, SUPERSEDED_BY, CAUSED, RESOLVED_BY, and VERIFIED_BY preserve why code and products became what they are.</p></article>
-            <article><span>04</span><h3>Unsupported means empty</h3><p>When support is absent, the compiler seals an empty packet. The model cannot convert a plausible story into a memory.</p></article>
-          </div>
-        </div>
-      </section>
-
-      <section className="install shell" id="install">
-        <div className="install-copy">
-          <span className="section-number">RUN LOCALLY</span>
-          <h2>Use the reference implementation.</h2>
-          <p>The repository includes the deterministic compiler, AES-GCM ledger, HMAC semantic transform, PostgreSQL + pgvector schema, scoped client grants, MCP adapter, synthetic Atlas corpus, frozen evaluation suite, and threat model.</p>
-          <a className="button primary dark-button" href="https://github.com/lukejones3/memory-authority" target="_blank" rel="noreferrer">Open the repository ↗</a>
-        </div>
-        <div className="code-window">
-          <div className="code-title"><span><i /><i /><i /></span><b>terminal</b><small>atlas-demo</small></div>
-          <pre><code><span className="dim"># start PostgreSQL + pgvector</span>{"\n"}<span className="prompt">$</span> docker compose up -d{"\n\n"}<span className="dim"># install and seed synthetic history</span>{"\n"}<span className="prompt">$</span> npm install{"\n"}<span className="prompt">$</span> npm run authority:seed{"\n\n"}<span className="dim"># compile a deterministic packet</span>{"\n"}<span className="prompt">$</span> npm run authority:query -- \\{"\n"}  <span className="string">&quot;Why does InvoiceLedger keep the guard?&quot;</span>{"\n\n"}<span className="success">✓ ctx_atlas_01J8Z6QK · 7a91c4e8…c21f</span></code></pre>
-        </div>
-      </section>
-
-      <footer className="shell">
-        <div className="brand"><span className="brand-mark"><i /><i /><i /></span><span>MEMORY AUTHORITY</span></div>
-        <p>Evidence before inference. Memory outside the model.</p>
-        <span className="mono">Apache-2.0 · synthetic demo data only</span>
-      </footer>
-    </main>
-  );
+    <section className="architecture" id="architecture"><div className="shell"><div className="section-head light"><div><span className="section-number">BOUNDARY</span><h2>The model is downstream.</h2></div><p>It can reason over the packet. It cannot silently decide identity, scope, what counts as memory, which version is current, or whether unsupported history should be invented.</p></div><div className="architecture-flow">{["Events + artifacts", "Encrypted ledger", "Typed causal graph", "Deterministic compiler", "Sealed packet", "Any model client"].map((label, index) => <div key={label}><span>{String(index + 1).padStart(2, "0")}</span><b>{label}</b>{index < 5 ? <i>→</i> : null}</div>)}</div></div></section>
+    <footer className="shell"><div className="brand"><span className="brand-mark"><i /><i /><i /></span><span>MEMORY AUTHORITY</span></div><p>Evidence before inference.</p><span className="mono">Apache-2.0 · synthetic demo only</span></footer>
+  </main>;
 }
